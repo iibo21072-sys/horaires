@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Calculatrice Horaire</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Horaire">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eaa3d2">
+<style>
+/* Layout: one-screen calculator — pink header band, result zone, memory strip, 4-column keypad */
+:root{padding:env(safe-area-inset-top,0) 0 0;
+  --band:#eaa3d2; --band-soft:#f3cfe6; --key:#fbf7fa; --key-op:#eeb3db;
+  --ink:#3b3f5e; --ink-soft:#8a7d93; --line:#f0d6e7; --bg:#fbf7fa; --accent:#d77fb8;
+  --f-num:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --band:#7a3f66; --band-soft:#4a2a40; --key:#241a22; --key-op:#5c3150;
+  --ink:#f6e8f1; --ink-soft:#c3a9bb; --line:#3a2835; --bg:#1c141a; --accent:#f0a3d4; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --band:#7a3f66; --band-soft:#4a2a40; --key:#241a22; --key-op:#5c3150;
+  --ink:#f6e8f1; --ink-soft:#c3a9bb; --line:#3a2835; --bg:#1c141a; --accent:#f0a3d4; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-num);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto}
+.top{background:var(--band);display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mem{display:flex;align-items:center;gap:10px;font-size:20px;color:#fff;font-variant-numeric:tabular-nums;background:none;border:0;font-family:inherit;padding:0}
+.mem .box{width:26px;height:26px;border:2px solid #fff;border-radius:4px;display:grid;place-items:center;font-size:15px}
+.iconbtn{background:none;border:0;color:#fff;padding:6px;cursor:pointer}
+.screen{flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#main{font-size:clamp(44px,13vw,64px);text-align:right;font-variant-numeric:tabular-nums;font-weight:300;line-height:1.1;overflow-wrap:anywhere}
+#opHint{text-align:right;color:var(--accent);font-size:20px;min-height:24px}
+#expr{border-top:1px solid var(--band);margin-top:10px;padding-top:10px;text-align:right;font-size:clamp(16px,5.2vw,24px);
+  color:var(--ink-soft);font-variant-numeric:tabular-nums;min-height:34px;overflow-wrap:anywhere}
+.mbar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--band-soft);border-top:1px solid var(--line)}
+.mbar button{background:none;border:0;border-right:1px solid var(--line);padding-block:14px;font-size:17px;color:var(--ink);font-family:inherit;cursor:pointer}
+.mbar button:last-child{border-right:0}
+.mbar .m{display:inline-block;border:1.5px solid currentColor;border-radius:3px;padding:0 4px;margin-right:3px;font-size:15px}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(58px,9.2vh);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+.keys button{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--key);color:var(--ink);
+  font-family:inherit;font-size:30px;font-weight:300;cursor:pointer;transition:filter .08s}
+.keys button:nth-child(4n){border-right:0}
+.keys button:active{filter:brightness(.9)}
+.keys .op,.keys .fn{background:var(--key-op)}
+.keys .on{outline:3px solid var(--accent);outline-offset:-3px}
+.split{display:grid;grid-template-columns:1fr 1fr;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--key)}
+.split button{border:0!important;font-size:16px;color:var(--ink-soft)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.hist{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;z-index:20}
+.hist header{background:var(--band);color:#fff;display:flex;justify-content:space-between;align-items:center;font-size:19px;
+  padding-block:calc(14px + env(safe-area-inset-top,0px)) 14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.hist header button{background:none;border:0;color:#fff;font-size:16px;font-family:inherit;cursor:pointer}
+.hist ul{list-style:none;margin:0;padding:0;overflow:auto;flex:1}
+.hist li{padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);
+  text-align:right;font-size:19px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;cursor:pointer}
+.hist .empty{color:var(--ink-soft);text-align:center;padding:40px 16px}
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="top">
+    <button class="mem" id="memBtn" aria-label="Rappeler la mémoire"><span class="box">✓</span><span id="memVal">0:00:00</span></button>
+    <button class="iconbtn" id="histBtn" aria-label="Historique">
+      <svg width="30" height="26" viewBox="0 0 30 26" fill="currentColor"><rect x="0" y="1" width="5" height="4"/><rect x="8" y="1" width="22" height="4"/><rect x="0" y="11" width="5" height="4"/><rect x="8" y="11" width="22" height="4"/><rect x="0" y="21" width="5" height="4"/><rect x="8" y="21" width="22" height="4"/></svg>
+    </button>
+  </div>
+  <div class="screen">
+    <div id="opHint"></div>
+    <div id="main">0:00:00</div>
+    <div id="expr"></div>
+  </div>
+  <div class="mbar">
+    <button id="mc"><span class="m">M</span>C</button>
+    <button id="mminus"><span class="m">M</span>−</button>
+    <button id="mplus"><span class="m">M</span>+</button>
+    <button id="mr"><span class="m">M</span>R</button>
+  </div>
+  <div class="keys">
+    <button class="fn" data-k="AC">AC</button>
+    <button class="fn" data-k="C">C</button>
+    <button class="fn" data-k="BS" aria-label="Effacer">⌫</button>
+    <button class="op" data-k="/">÷</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button class="op" data-k="*">×</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button class="op" data-k="-">−</button>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button class="op" data-k="+">+</button>
+    <button data-k="0">0</button><button data-k="00">00</button>
+    <div class="split"><button data-k="+24">+24</button><button data-k="-24">−24</button></div>
+    <button class="op" data-k="=">=</button>
+  </div>
+</div>
+
+<div class="hist" id="hist" hidden>
+  <header><span>Historique</span><span><button id="clearHist">Effacer</button>&nbsp;&nbsp;<button id="closeHist">Fermer</button></span></header>
+  <ul id="histList"></ul>
+</div>
+
+<script>
+const S={digits:"",value:0,acc:null,op:null,tokens:[],justDone:false,mem:0,hist:[]};
+try{const s=JSON.parse(localStorage.getItem("calc-h")||"{}");S.mem=s.mem||0;S.hist=s.hist||[]}catch(e){}
+function save(){try{localStorage.setItem("calc-h",JSON.stringify({mem:S.mem,hist:S.hist.slice(0,100)}))}catch(e){}}
+
+const SYM={"+":"+","-":"−","*":"×","/":"÷"};
+function fmt(sec){const neg=sec<0;sec=Math.round(Math.abs(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return (neg?"−":"")+h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
+function digitsToSec(d){d=d.padStart(6,"0");const s=+d.slice(-2),m=+d.slice(-4,-2),h=+d.slice(0,-4);return h*3600+m*60+s}
+const numMode=()=>S.op==="*"||S.op==="/";
+function entryValue(){return numMode()?(+S.digits||0):digitsToSec(S.digits)}
+function entryText(){return numMode()?String(+S.digits||0):fmt(digitsToSec(S.digits))}
+function compute(a,op,b){if(op==="+")return a+b;if(op==="-")return a-b;if(op==="*")return a*b;if(op==="/")return b===0?NaN:a/b;return b}
+
+function render(){
+  const main=document.getElementById("main");
+  if(S.digits!=="") main.textContent=entryText();
+  else main.textContent=Number.isNaN(S.value)?"Erreur":fmt(S.value);
+  document.getElementById("opHint").textContent=S.op&&!S.justDone?SYM[S.op]:"";
+  document.getElementById("expr").textContent=S.tokens.join("");
+  document.getElementById("memVal").textContent=fmt(S.mem);
+  document.querySelectorAll(".keys .op").forEach(b=>b.classList.toggle("on",b.dataset.k===S.op&&S.digits===""&&!S.justDone));
+}
+function current(){return S.digits!==""?entryValue():S.value}
+
+function press(k){
+  if(/^\d+$/.test(k)){
+    if(S.justDone){S.tokens=[];S.justDone=false;S.acc=null;S.op=null}
+    if(S.digits.length<9) S.digits=(S.digits+k).replace(/^0+/,"");
+    if(S.digits==="") S.digits="0";
+  }else if(k==="BS"){S.digits=S.digits.slice(0,-1)}
+  else if(k==="C"){S.digits="";if(S.acc===null){S.value=0}}
+  else if(k==="AC"){Object.assign(S,{digits:"",value:0,acc:null,op:null,tokens:[],justDone:false})}
+  else if(k==="+24"||k==="-24"){
+    const d=k==="+24"?86400:-86400;
+    if(numMode()&&S.digits!==""){return}
+    const v=current()+d;S.digits="";S.value=v;
+    if(S.justDone){S.tokens=[];S.justDone=false;S.acc=null;S.op=null}
+  }
+  else if("+-*/".includes(k)){
+    if(S.justDone){S.tokens=[fmt(S.value)];S.acc=S.value;S.justDone=false}
+    else if(S.digits!==""){
+      const b=entryValue();S.tokens.push(entryText());
+      S.acc=S.acc===null?b:compute(S.acc,S.op,b);S.value=S.acc;
+    }else if(S.acc===null){S.acc=S.value;S.tokens=[fmt(S.value)]}
+    else{S.tokens.pop()}
+    S.digits="";S.op=k;S.tokens.push(SYM[k]);
+  }
+  else if(k==="="){
+    if(S.op===null||S.justDone) return;
+    const b=S.digits!==""?entryValue():(numMode()?1:0);
+    S.tokens.push(S.digits!==""?entryText():(numMode()?"1":fmt(0)));
+    const r=compute(S.acc,S.op,b);
+    S.tokens.push(" = "+(Number.isNaN(r)?"Erreur":fmt(r)));
+    S.value=r;S.digits="";S.acc=null;S.justDone=true;
+    if(!Number.isNaN(r)){S.hist.unshift(S.tokens.join(""));save()}
+    S.op=null;
+  }
+  render();
+}
+document.querySelectorAll("[data-k]").forEach(b=>b.addEventListener("click",()=>press(b.dataset.k)));
+document.getElementById("mplus").onclick=()=>{const v=current();if(!Number.isNaN(v)&&!numMode()){S.mem+=v;save();render()}};
+document.getElementById("mminus").onclick=()=>{const v=current();if(!Number.isNaN(v)&&!numMode()){S.mem-=v;save();render()}};
+document.getElementById("mc").onclick=()=>{S.mem=0;save();render()};
+function recall(){if(numMode())return;if(S.justDone){S.tokens=[];S.justDone=false;S.acc=null;S.op=null}S.digits="";S.value=S.mem;render()}
+document.getElementById("mr").onclick=recall;
+document.getElementById("memBtn").onclick=recall;
+
+const hist=document.getElementById("hist");
+function showHist(){const ul=document.getElementById("histList");ul.innerHTML="";
+  if(!S.hist.length){ul.innerHTML='<li class="empty">Aucun calcul pour le moment</li>'}
+  S.hist.forEach(t=>{const li=document.createElement("li");li.textContent=t;li.onclick=()=>{
+    const r=t.split(" = ").pop().replace("−","-");const neg=r.startsWith("-");const [h,m,s]=r.replace("-","").split(":").map(Number);
+    press("AC");S.value=(neg?-1:1)*(h*3600+m*60+s);hist.hidden=true;render()};ul.appendChild(li)});
+  hist.hidden=false}
+document.getElementById("histBtn").onclick=showHist;
+document.getElementById("closeHist").onclick=()=>hist.hidden=true;
+document.getElementById("clearHist").onclick=()=>{S.hist=[];save();showHist()};
+document.addEventListener("keydown",e=>{const m={Enter:"=",Backspace:"BS",Escape:"AC"};const k=m[e.key]||e.key;
+  if(/^\d$/.test(k)||"+-*/=".includes(k)&&k.length===1||k==="BS"||k==="AC"){e.preventDefault();press(k)}});
+
+/* Exemple au démarrage : 0:00:12 + 0:00:06 */
+if(!S.hist.length){S.tokens=["0:00:12","+","0:00:06"," = 0:00:18"];S.value=18;S.justDone=true}
+render();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+</script>
+
+</body>
+</html>
